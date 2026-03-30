@@ -2,6 +2,7 @@ central:
   reports:
     datastores:
       - artifact://gitignore-in/gitignore-in/octocov-report
+      - artifact://gitignore-in/website/octocov-report
   badges:
     datastores:
       - local://badges
