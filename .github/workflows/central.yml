@@ -9,13 +9,17 @@ on:
       - main
   pull_request:
 
+permissions:
+  actions: read
+  contents: write
+
 jobs:
   collect:
     name: Collect code metrics using octocov central mode
     runs-on: ubuntu-latest
     steps:
       - name: Check out source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Run octocov
-        uses: k1LoW/octocov-action@v1
+        uses: k1LoW/octocov-action@b3b6ee60482a667950f87553abf1df63217235d9
