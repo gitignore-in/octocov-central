@@ -1,3 +1,7 @@
+# Trust boundary: only artifact:// URIs within the gitignore-in organization are allowed.
+# Adding a URI from an external owner would let that owner's artifact content flow into
+# the generated SVG badges and README committed to this repository.
+# Changes to this file require CODEOWNERS review (see .github/CODEOWNERS).
 central:
   reports:
     datastores:
