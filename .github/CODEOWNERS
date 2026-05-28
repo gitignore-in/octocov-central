@@ -1,0 +1,4 @@
+# Require owner review for any change to .octocov.yml.
+# The datastores field lists artifact:// URIs that this workflow trusts;
+# changing it can redirect generated SVG and README content to attacker-controlled sources.
+/.octocov.yml @kitsuyui
