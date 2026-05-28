@@ -18,10 +18,19 @@ result instead of parsing the badge text.
 ## Code To Test Ratio
 
 `Code to Test Ratio` is the ratio rendered by octocov for code volume compared
-with test volume. The README displays it in `1:N` form, such as `1:0.0`.
+with test volume. The README displays it in `1:N` form with one decimal place,
+such as `1:0.0` or `1:0.5`.
 
-Small projects can round to `0.0` in the displayed ratio. Use it as a coarse
-trend indicator, not as a precise measurement.
+octocov renders this value with one decimal place. Any ratio below `0.05`
+rounds to `1:0.0`, so repositories with substantially different actual test
+densities — for example `0.001` and `0.049` — are indistinguishable in the
+table; both display as `1:0.0`. The ratio badge (`ratio.svg`) uses the same
+one-decimal-place rendering and does not add precision beyond what the README
+shows.
+
+Use the displayed value as a coarse order-of-magnitude indicator. For a
+precise ratio, consult the source repository's octocov report or CI artifacts
+directly.
 
 ## Test Execution Time
 
