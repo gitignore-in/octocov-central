@@ -21,6 +21,7 @@ jobs:
   collect:
     name: Collect code metrics using octocov central mode
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Check out source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
