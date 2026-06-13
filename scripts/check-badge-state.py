@@ -16,12 +16,41 @@ import sys
 from pathlib import Path
 
 
+_DATASTORE_PATH = ("central", "reports", "datastores")
+_YAML_KEY_RE = re.compile(r"^([A-Za-z0-9_-]+):\s*$")
+_ARTIFACT_DATASTORE_RE = re.compile(
+    r"^-\s*['\"]?artifact://([^\s/#'\"]+/[^\s/#'\"]+)/"
+)
+
+
 def parse_datastore_repos(octocov_path: Path) -> set[str]:
     """Return set of 'owner/repo' strings from central.reports.datastores."""
-    text = octocov_path.read_text()
-    # Match artifact://owner/repo/... URIs. Use [^\s/]+ to avoid crossing line boundaries.
-    pattern = re.compile(r"artifact://([^\s/]+/[^\s/]+)/")
-    return {m.group(1) for m in pattern.finditer(text)}
+    result = set()
+    stack: list[tuple[int, str]] = []
+
+    for line in octocov_path.read_text(encoding="utf-8").splitlines():
+        content = line.split("#", 1)[0].rstrip()
+        if not content.strip():
+            continue
+
+        indent = len(content) - len(content.lstrip(" "))
+        stripped = content.lstrip()
+        while stack and indent <= stack[-1][0]:
+            stack.pop()
+
+        key_match = _YAML_KEY_RE.match(stripped)
+        if key_match:
+            stack.append((indent, key_match.group(1)))
+            continue
+
+        if tuple(key for _, key in stack) != _DATASTORE_PATH:
+            continue
+
+        datastore_match = _ARTIFACT_DATASTORE_RE.match(stripped)
+        if datastore_match:
+            result.add(datastore_match.group(1))
+
+    return result
 
 
 def find_badge_repos(badges_dir: Path) -> set[str]:
