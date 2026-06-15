@@ -79,3 +79,25 @@ To stay in sync:
 
 There is no automated cross-version check today; this is a manual review step
 during Renovate bump PRs.
+
+### Artifact name stability
+
+The artifact name `octocov-report` is **stable** and forms part of this
+contract, parallel to the badge URL `<metric>` values declared above.  The
+central workflow looks up each member repository's artifact by exactly this
+name (see `.octocov.yml` `datastores` entries).  Contributors adding a new
+member repository must publish under this exact name.
+
+If the artifact name ever needs to change — for example because upstream
+octocov adopts a different naming convention — the process is:
+
+1. Update `.octocov.yml` to accept both the old and the new name during a
+   transition period.
+2. Open pull requests against all member repositories to publish under the
+   new name.
+3. Remove the old name from `.octocov.yml` only after all member repositories
+   have migrated.
+
+A silent mismatch (central expects `octocov-report` but a member publishes
+under a different name) causes the central collect job to skip that member's
+data without an error, so changes to this name require coordinated migration.
