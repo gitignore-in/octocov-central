@@ -4,9 +4,11 @@
 # Changes to this file require CODEOWNERS review (see .github/CODEOWNERS).
 central:
   reports:
+    # input sources: artifact:// URIs that octocov fetches and processes
     datastores:
       - artifact://gitignore-in/gitignore-in/octocov-report
       - artifact://gitignore-in/website/octocov-report
   badges:
+    # output destination: local path where generated SVG badges are written
     datastores:
       - local://badges
