@@ -27,6 +27,12 @@ raw URL.  If such a change is ever required, the process is:
 Until a versioned path scheme is introduced, treat the current URL structure as
 stable-by-convention, not stable-by-contract.
 
+**Branch reference stability**: The `main` branch reference embedded in badge URLs carries
+the same stability commitment as the path structure.  Renaming the default branch would
+silently break every embedded badge URL, and is therefore treated as a breaking change
+subject to the same three-step migration process above: keep the old branch accessible for
+at least one month, notify known consumers, and retire it only after migration is complete.
+
 ## Removing a repository (sunset process)
 
 When a member repository is removed from `.octocov.yml` `datastores`, the
