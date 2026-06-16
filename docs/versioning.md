@@ -40,10 +40,13 @@ member repository:
    # - artifact://gitignore-in/old-repo/octocov-report
    ```
 2. Delete the `badges/<owner>/<repo>/` directory in the same commit.
-3. Update `README.md` to remove the row for that repository.
 
-This three-step record keeps the intent visible in git history even after the
+This two-step record keeps the intent visible in git history even after the
 YAML entry is gone.
+
+`README.md` does not need manual editing: the Collect workflow regenerates the
+table from `.octocov.yml` on every run, so the row for the removed repository
+disappears automatically on the next successful Collect run.
 
 ## `.octocov.yml` configuration schema
 
