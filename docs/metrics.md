@@ -70,3 +70,15 @@ output; they are added by the workflow step named
 Readers who compare the committed `README.md` against raw octocov output will
 see these four differences. They are intentional workflow additions, not
 octocov changes.
+
+## Update Schedule
+
+The `Collect` workflow runs on a schedule defined in
+`.github/workflows/central.yml`. The cron expression `0 0,3,6,9 * * *`
+triggers the workflow at **00:00, 03:00, 06:00, and 09:00 UTC** every day.
+GitHub Actions schedules always use UTC regardless of the repository owner's
+local timezone.
+
+The workflow also runs on every push to `main`, on pull requests, and on
+manual dispatch via `workflow_dispatch`. The scheduled runs ensure that badge
+SVGs and the metrics table stay current even without code changes.
