@@ -47,10 +47,10 @@ transformations before committing the file. These are not part of octocov's
 output; they are added by the workflow step named
 "Post-process README and commit".
 
-1. **Typo correction**: Replaces the string `Time Execution Time` with
-   `Test Execution Time`. This works around an octocov rendering quirk where the
-   column header text differs from the intended label. The `sed` substitution is
-   a no-op once the upstream issue is fixed.
+1. **Typo correction**: Rewrites the generated `## Repositories` table header
+   cell `Time Execution Time` to `Test Execution Time`. This works around an
+   octocov rendering quirk where the column header text differs from the
+   intended label. The correction is a no-op once the upstream issue is fixed.
 
 2. **DO NOT EDIT header**: Inserts an HTML comment at the top of `README.md`
    that reads:

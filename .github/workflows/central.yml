@@ -52,15 +52,17 @@ jobs:
             "the octocov generated table.")
           # Cross-reference link inserted after the "## Repositories" heading (octocov does not add this itself).
           metrics_note='Metric units and precision are described in [Metric Values](docs/metrics.md).'
-          # Workaround: octocov renders the column header as "Time Execution Time"; correct it to "Test Execution Time".
-          # This sed is a no-op once the upstream octocov issue is resolved.
-          sed -i -e 's/Time Execution Time/Test Execution Time/g' README.md
           {
             printf '%s\n\n' "${header}"
             printf '%s\n\n' "${orientation}"
             awk -v note="${metrics_note}" '
+              in_repositories && !corrected_time_header && /^\| Repository \| Coverage \| Code to Test Ratio \| Time Execution Time \| Badges \|$/ {
+                sub(/\| Time Execution Time \|/, "| Test Execution Time |")
+                corrected_time_header = 1
+              }
               { print }
               /^## Repositories$/ {
+                in_repositories = 1
                 print ""
                 print note
               }
