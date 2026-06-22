@@ -12,8 +12,9 @@ fetches and processes. Only URIs within the `gitignore-in` organization are
 allowed. Adding a URI from an external owner would redirect generated SVG and
 README content to that owner's artifact, which may contain crafted content.
 
-Changes to `.octocov.yml` are protected by `.github/CODEOWNERS` and require
-explicit review before merging.
+`.github/CODEOWNERS` designates `@kitsuyui` as a required reviewer for `.octocov.yml`
+changes. This designation is advisory unless the `main` branch has protection rules
+with "Require review from Code Owners" enabled.
 
 ## Trust placed in upstream octocov
 
