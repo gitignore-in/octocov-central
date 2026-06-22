@@ -16,6 +16,7 @@ concurrency:
 permissions:
   actions: read
   contents: write
+  pull-requests: write
 
 jobs:
   collect:
@@ -31,6 +32,8 @@ jobs:
 
       - name: Post-process README and commit
         if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -e
           trap 'rm -f README.md.tmp' EXIT
@@ -74,5 +77,13 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "Update by octocov"
-            git push
+            BRANCH="auto-update/octocov-${GITHUB_RUN_ID}"
+            git checkout -b "${BRANCH}"
+            git push origin "${BRANCH}"
+            gh pr create \
+              --title "Update by octocov" \
+              --body "Automated octocov metrics update." \
+              --base main \
+              --head "${BRANCH}"
+            gh pr merge "${BRANCH}" --merge
           fi
