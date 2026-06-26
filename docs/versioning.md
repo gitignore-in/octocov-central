@@ -84,7 +84,9 @@ To stay in sync:
   compatible octocov version before merging.
 
 There is no automated cross-version check today; this is a manual review step
-during Renovate bump PRs.
+during bump PRs. `.github/CODEOWNERS` requires owner review for any change to
+`central.yml` — including Dependabot bump PRs — so the compatibility check
+above must be completed before a bump can merge.
 
 ### Artifact name stability
 
