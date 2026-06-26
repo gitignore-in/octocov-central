@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Vim
+*.swp
+*.swo
+
+# Editor backups
+*.bak
+*~
