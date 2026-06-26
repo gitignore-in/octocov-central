@@ -43,9 +43,9 @@ repository's CI logs when precise timing is required.
 ## README Post-processing
 
 After octocov generates `README.md`, the `Collect` workflow applies four
-transformations before committing the file. These are not part of octocov's
-output; they are added by the workflow step named
-"Post-process README and commit".
+`README.md` transformations and one badge-staging adjustment before committing.
+These are not part of octocov's output; they are added by the workflow step
+named "Post-process README and commit".
 
 1. **Typo correction**: Replaces the string `Time Execution Time` with
    `Test Execution Time`. This works around an octocov rendering quirk where the
@@ -67,6 +67,14 @@ output; they are added by the workflow step named
    immediately after the `## Repositories` heading.
    This cross-reference to the present document is also not produced by octocov.
 
+5. **Time badge exclusion**: Removes `badges/**/time.svg` from the staged
+   changes before committing. This means `time.svg` is only committed when at
+   least one other file (such as `README.md` or a non-time badge) also changed.
+   Runs where only test-execution time changed — with coverage and ratio values
+   unchanged — produce no commit. This avoids churn from non-deterministic
+   timing values while preserving updates whenever meaningful metric changes
+   occur.
+
 Readers who compare the committed `README.md` against raw octocov output will
-see these four differences. They are intentional workflow additions, not
-octocov changes.
+see the four `README.md` differences listed above. The time badge exclusion
+applies to SVG files only and does not alter `README.md` content.
