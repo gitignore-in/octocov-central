@@ -70,3 +70,20 @@ output; they are added by the workflow step named
 Readers who compare the committed `README.md` against raw octocov output will
 see these four differences. They are intentional workflow additions, not
 octocov changes.
+
+## Badge Staging Scope
+
+When the `Collect` workflow commits badge changes, it stages the entire
+`badges/` directory with `git add badges/`. This means the staged set includes
+**all files under `badges/`** that differ from the previous commit — not only
+the SVG files that octocov wrote during the current run.
+
+Concretely, any file under `badges/` that is modified, added, or deleted
+between runs will be included in the next auto-update commit, regardless of
+whether octocov produced it. This design ensures that badge deletions (for
+example, when a member repository is removed from `.octocov.yml`) are picked
+up automatically without a separate cleanup step.
+
+Contributors who add or modify files under `badges/` manually should be aware
+that those changes will be committed by the next scheduled `Collect` run if
+the file differs from `HEAD` at that time.
