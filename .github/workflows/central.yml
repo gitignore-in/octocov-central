@@ -58,6 +58,7 @@ jobs:
           # Workaround: octocov renders the column header as "Time Execution Time"; correct it to "Test Execution Time".
           # This sed is a no-op once the upstream octocov issue is resolved.
           sed -i -e 's/Time Execution Time/Test Execution Time/g' README.md
+          grep -q '^## Repositories$' README.md || { printf 'ERROR: ## Repositories heading absent from README.md; metrics_note will not be inserted\n' >&2; exit 1; }
           {
             printf '%s\n\n' "${header}"
             printf '%s\n\n' "${orientation}"
