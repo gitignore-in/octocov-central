@@ -74,9 +74,10 @@ jobs:
             printf '%s\n\n' "${orientation}"
             awk -v note="${metrics_note}" '
               { print }
-              /^## Repositories$/ {
+              !done && /^## Repositories$/ {
                 print ""
                 print note
+                done = 1
               }
             ' README.md
           } > README.md.tmp
