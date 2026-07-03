@@ -72,7 +72,8 @@ jobs:
           {
             printf '%s\n\n' "${header}"
             printf '%s\n\n' "${orientation}"
-            awk -v note="${metrics_note}" '
+            METRICS_NOTE="${metrics_note}" awk '
+              BEGIN { note = ENVIRON["METRICS_NOTE"] }
               { print }
               !done && /^## Repositories$/ {
                 print ""
