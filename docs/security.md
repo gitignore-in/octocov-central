@@ -7,10 +7,17 @@ constraints consumers of the generated files should follow.
 
 ## Trusted artifact sources
 
-The `.octocov.yml` `datastores` field lists `artifact://` URIs that the workflow
-fetches and processes. Only URIs within the `gitignore-in` organization are
-allowed. Adding a URI from an external owner would redirect generated SVG and
-README content to that owner's artifact, which may contain crafted content.
+The `central.reports.datastores` field lists `artifact://` URIs that the
+workflow **fetches and processes** (input sources). Only URIs within the
+`gitignore-in` organization are allowed. Adding a URI from an external owner
+would redirect generated SVG and README content to that owner's artifact, which
+may contain crafted content.
+
+The `central.badges.datastores` field is semantically different: it is the
+**output destination** where octocov writes the generated SVG badges. Its value
+(`local://badges`) is a local path, not an artifact source, and it does not
+affect the trust boundary described above. New member repositories are added to
+`central.reports.datastores`, not to `central.badges.datastores`.
 
 `.github/CODEOWNERS` designates `@kitsuyui` as a required reviewer for `.octocov.yml`
 changes. This designation is advisory unless the `main` branch has protection rules
