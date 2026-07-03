@@ -3,7 +3,7 @@ name: Collect
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0,3,6,9 * * *'
+    - cron: '0 0,3,6,9 * * *'  # 00:00, 03:00, 06:00, 09:00 UTC
   push:
     branches:
       - main
