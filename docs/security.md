@@ -7,13 +7,38 @@ constraints consumers of the generated files should follow.
 
 ## Trusted artifact sources
 
-The `.octocov.yml` `datastores` field lists `artifact://` URIs that the workflow
-fetches and processes. Only URIs within the `gitignore-in` organization are
-allowed. Adding a URI from an external owner would redirect generated SVG and
-README content to that owner's artifact, which may contain crafted content.
+The `central.reports.datastores` field lists `artifact://` URIs that the
+workflow **fetches and processes** (input sources). Only URIs within the
+`gitignore-in` organization are allowed. Adding a URI from an external owner
+would redirect generated SVG and README content to that owner's artifact, which
+may contain crafted content.
 
-Changes to `.octocov.yml` are protected by `.github/CODEOWNERS` and require
-explicit review before merging.
+The `central.badges.datastores` field is semantically different: it is the
+**output destination** where octocov writes the generated SVG badges. Its value
+(`local://badges`) is a local path, not an artifact source, and it does not
+affect the trust boundary described above. New member repositories are added to
+`central.reports.datastores`, not to `central.badges.datastores`.
+
+`.github/CODEOWNERS` designates `@kitsuyui` as a required reviewer for `.octocov.yml`
+changes. This designation is advisory unless the `main` branch has protection rules
+with "Require review from Code Owners" enabled.
+
+## Source artifact availability
+
+The Collect workflow checks every `.octocov.yml` `artifact://` URI before
+running octocov. Each source repository must have at least one unexpired
+artifact with the configured artifact name. If any source artifact is missing,
+expired, or inaccessible, the workflow fails before octocov can regenerate
+`README.md` or SVG badges.
+
+This makes artifact outages fail closed. The committed files under `badges/`
+remain the last successful snapshot instead of being replaced by zero values or
+partial output. The workflow also writes the selected source artifact metadata
+to `badges/source-artifacts.json`, including the source repository, artifact
+name, artifact id, creation time, expiration time, and source workflow run
+branch/SHA when GitHub exposes that metadata. Use this file when checking
+whether the committed badge snapshot is based on fresh source artifacts and
+which source revision produced each artifact.
 
 ## Trust placed in upstream octocov
 

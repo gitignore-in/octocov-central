@@ -27,6 +27,12 @@ raw URL.  If such a change is ever required, the process is:
 Until a versioned path scheme is introduced, treat the current URL structure as
 stable-by-convention, not stable-by-contract.
 
+**Branch reference stability**: The `main` branch reference embedded in badge URLs carries
+the same stability commitment as the path structure.  Renaming the default branch would
+silently break every embedded badge URL, and is therefore treated as a breaking change
+subject to the same three-step migration process above: keep the old branch accessible for
+at least one month, notify known consumers, and retire it only after migration is complete.
+
 ## Removing a repository (sunset process)
 
 When a member repository is removed from `.octocov.yml` `datastores`, the
@@ -40,10 +46,13 @@ member repository:
    # - artifact://gitignore-in/old-repo/octocov-report
    ```
 2. Delete the `badges/<owner>/<repo>/` directory in the same commit.
-3. Update `README.md` to remove the row for that repository.
 
-This three-step record keeps the intent visible in git history even after the
+This two-step record keeps the intent visible in git history even after the
 YAML entry is gone.
+
+`README.md` does not need manual editing: the Collect workflow regenerates the
+table from `.octocov.yml` on every run, so the row for the removed repository
+disappears automatically on the next successful Collect run.
 
 ## `.octocov.yml` configuration schema
 
@@ -78,4 +87,28 @@ To stay in sync:
   compatible octocov version before merging.
 
 There is no automated cross-version check today; this is a manual review step
-during Renovate bump PRs.
+during bump PRs. `.github/CODEOWNERS` requires owner review for any change to
+`central.yml` — including Dependabot bump PRs — so the compatibility check
+above must be completed before a bump can merge.
+
+### Artifact name stability
+
+The artifact name `octocov-report` is **stable** and forms part of this
+contract, parallel to the badge URL `<metric>` values declared above.  The
+central workflow looks up each member repository's artifact by exactly this
+name (see `.octocov.yml` `datastores` entries).  Contributors adding a new
+member repository must publish under this exact name.
+
+If the artifact name ever needs to change — for example because upstream
+octocov adopts a different naming convention — the process is:
+
+1. Update `.octocov.yml` to accept both the old and the new name during a
+   transition period.
+2. Open pull requests against all member repositories to publish under the
+   new name.
+3. Remove the old name from `.octocov.yml` only after all member repositories
+   have migrated.
+
+A silent mismatch (central expects `octocov-report` but a member publishes
+under a different name) causes the central collect job to skip that member's
+data without an error, so changes to this name require coordinated migration.

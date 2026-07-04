@@ -1,12 +1,16 @@
 # Trust boundary: only artifact:// URIs within the gitignore-in organization are allowed.
 # Adding a URI from an external owner would let that owner's artifact content flow into
 # the generated SVG badges and README committed to this repository.
+# The Collect workflow checks every artifact:// URI before running octocov and
+# writes the selected unexpired artifact metadata to badges/source-artifacts.json.
 # Changes to this file require CODEOWNERS review (see .github/CODEOWNERS).
 central:
   reports:
+    # input sources: artifact:// URIs that octocov fetches and processes
     datastores:
       - artifact://gitignore-in/gitignore-in/octocov-report
       - artifact://gitignore-in/website/octocov-report
   badges:
+    # output destination: local path where generated SVG badges are written
     datastores:
       - local://badges
