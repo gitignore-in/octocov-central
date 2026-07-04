@@ -46,10 +46,13 @@ member repository:
    # - artifact://gitignore-in/old-repo/octocov-report
    ```
 2. Delete the `badges/<owner>/<repo>/` directory in the same commit.
-3. Update `README.md` to remove the row for that repository.
 
-This three-step record keeps the intent visible in git history even after the
+This two-step record keeps the intent visible in git history even after the
 YAML entry is gone.
+
+`README.md` does not need manual editing: the Collect workflow regenerates the
+table from `.octocov.yml` on every run, so the row for the removed repository
+disappears automatically on the next successful Collect run.
 
 ## `.octocov.yml` configuration schema
 
@@ -84,7 +87,9 @@ To stay in sync:
   compatible octocov version before merging.
 
 There is no automated cross-version check today; this is a manual review step
-during Renovate bump PRs.
+during bump PRs. `.github/CODEOWNERS` requires owner review for any change to
+`central.yml` — including Dependabot bump PRs — so the compatibility check
+above must be completed before a bump can merge.
 
 ### Artifact name stability
 
