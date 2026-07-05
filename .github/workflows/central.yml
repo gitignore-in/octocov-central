@@ -2,6 +2,11 @@ name: Collect
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Collect metrics but skip the README and badge commit (dry-run mode)'
+        type: boolean
+        default: false
   schedule:
     - cron: '0 0,3,6,9 * * *'  # 00:00, 03:00, 06:00, 09:00 UTC
   push:
@@ -44,6 +49,7 @@ jobs:
       - name: Post-process README and commit
         if: github.event_name != 'pull_request'
         env:
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
@@ -89,6 +95,9 @@ jobs:
           git add -A -- README.md badges/
           if git diff --cached --quiet; then
             echo "No changes to commit"
+          elif [ "${DRY_RUN}" = "true" ]; then
+            echo "Dry run: skipping commit and push"
+            git diff --cached --stat
           else
             git commit -m "Update by octocov"
             BRANCH="auto-update/octocov-${GITHUB_RUN_ID}"
