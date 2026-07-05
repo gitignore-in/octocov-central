@@ -3,7 +3,7 @@ name: Collect
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0,3,6,9 * * *'
+    - cron: '0 0,3,6,9 * * *'  # 00:00, 03:00, 06:00, 09:00 UTC
   push:
     branches:
       - main
@@ -25,7 +25,18 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out source code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Check source artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/check-octocov-source-artifacts.py
+
+      - name: Test badge state parser
+        run: python3 scripts/test-check-badge-state.py
+
+      - name: Check badge state consistency
+        run: python3 scripts/check-badge-state.py
 
       - name: Run octocov
         uses: k1LoW/octocov-action@b3b6ee60482a667950f87553abf1df63217235d9 # v1.5.1
@@ -58,21 +69,24 @@ jobs:
           # Workaround: octocov renders the column header as "Time Execution Time"; correct it to "Test Execution Time".
           # This sed is a no-op once the upstream octocov issue is resolved.
           sed -i -e 's/Time Execution Time/Test Execution Time/g' README.md
+          grep -q '^## Repositories$' README.md || { printf 'ERROR: ## Repositories heading absent from README.md; metrics_note will not be inserted\n' >&2; exit 1; }
           {
             printf '%s\n\n' "${header}"
             printf '%s\n\n' "${orientation}"
-            awk -v note="${metrics_note}" '
+            METRICS_NOTE="${metrics_note}" awk '
+              BEGIN { note = ENVIRON["METRICS_NOTE"] }
               { print }
-              /^## Repositories$/ {
+              !done && /^## Repositories$/ {
                 print ""
                 print note
+                done = 1
               }
             ' README.md
           } > README.md.tmp
           mv README.md.tmp README.md
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add README.md badges/
+          git add -A -- README.md badges/
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
@@ -85,5 +99,5 @@ jobs:
               --body "Automated octocov metrics update." \
               --base main \
               --head "${BRANCH}"
-            gh pr merge "${BRANCH}" --merge
+            gh pr merge "${BRANCH}" --merge --delete-branch
           fi

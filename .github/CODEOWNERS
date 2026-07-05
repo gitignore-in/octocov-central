@@ -2,3 +2,11 @@
 # The datastores field lists artifact:// URIs that this workflow trusts;
 # changing it can redirect generated SVG and README content to attacker-controlled sources.
 /.octocov.yml @kitsuyui
+
+# Require owner review for any change to central.yml.
+# This file pins k1LoW/octocov-action; bumping the action without checking
+# cross-version compatibility with member repositories can silently break
+# artifact ingestion. Dependabot creates weekly bump PRs for this file,
+# so a required review ensures the compatibility check in docs/versioning.md
+# is not skipped.
+/.github/workflows/central.yml @kitsuyui

@@ -87,3 +87,15 @@ up automatically without a separate cleanup step.
 Contributors who add or modify files under `badges/` manually should be aware
 that those changes will be committed by the next scheduled `Collect` run if
 the file differs from `HEAD` at that time.
+
+## Update Schedule
+
+The `Collect` workflow runs on a schedule defined in
+`.github/workflows/central.yml`. The cron expression `0 0,3,6,9 * * *`
+triggers the workflow at **00:00, 03:00, 06:00, and 09:00 UTC** every day.
+GitHub Actions schedules always use UTC regardless of the repository owner's
+local timezone.
+
+The workflow also runs on every push to `main`, on pull requests, and on
+manual dispatch via `workflow_dispatch`. The scheduled runs ensure that badge
+SVGs and the metrics table stay current even without code changes.
