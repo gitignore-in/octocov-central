@@ -2,8 +2,13 @@ name: Collect
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Collect metrics but skip the README and badge commit (dry-run mode)'
+        type: boolean
+        default: false
   schedule:
-    - cron: '0 0,3,6,9 * * *'
+    - cron: '0 0,3,6,9 * * *'  # 00:00, 03:00, 06:00, 09:00 UTC
   push:
     branches:
       - main
@@ -25,7 +30,18 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out source code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Check source artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/check-octocov-source-artifacts.py
+
+      - name: Test badge state parser
+        run: python3 scripts/test-check-badge-state.py
+
+      - name: Check badge state consistency
+        run: python3 scripts/check-badge-state.py
 
       - name: Run octocov
         uses: k1LoW/octocov-action@b3b6ee60482a667950f87553abf1df63217235d9 # v1.5.1
@@ -33,6 +49,7 @@ jobs:
       - name: Post-process README and commit
         if: github.event_name != 'pull_request'
         env:
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
@@ -55,26 +72,35 @@ jobs:
             "the octocov generated table.")
           # Cross-reference link inserted after the "## Repositories" heading (octocov does not add this itself).
           metrics_note='Metric units and precision are described in [Metric Values](docs/metrics.md).'
-          # Workaround: octocov renders the column header as "Time Execution Time"; correct it to "Test Execution Time".
-          # This sed is a no-op once the upstream octocov issue is resolved.
-          sed -i -e 's/Time Execution Time/Test Execution Time/g' README.md
           {
             printf '%s\n\n' "${header}"
             printf '%s\n\n' "${orientation}"
             awk -v note="${metrics_note}" '
+              in_repositories && !corrected_time_header && /^\| Repository \| Coverage \| Code to Test Ratio \| Time Execution Time \| Badges \|$/ {
+                sub(/\| Time Execution Time \|/, "| Test Execution Time |")
+                corrected_time_header = 1
+              }
               { print }
               /^## Repositories$/ {
+                in_repositories = 1
                 print ""
                 print note
               }
             ' README.md
+            # Workaround: octocov renders the column header as "Time Execution Time"; correct it to "Test Execution Time".
+            # This sed is a no-op once the upstream octocov issue is resolved.
+            sed -i -e 's/Time Execution Time/Test Execution Time/g' README.md
           } > README.md.tmp
           mv README.md.tmp README.md
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add README.md badges/
+          git add -A -- README.md badges/
+          git restore --staged -- 'badges/**/time.svg'
           if git diff --cached --quiet; then
             echo "No changes to commit"
+          elif [ "${DRY_RUN}" = "true" ]; then
+            echo "Dry run: skipping commit and push"
+            git diff --cached --stat
           else
             git commit -m "Update by octocov"
             BRANCH="auto-update/octocov-${GITHUB_RUN_ID}"
@@ -85,5 +111,5 @@ jobs:
               --body "Automated octocov metrics update." \
               --base main \
               --head "${BRANCH}"
-            gh pr merge "${BRANCH}" --merge
+            gh pr merge "${BRANCH}" --merge --auto --delete-branch
           fi

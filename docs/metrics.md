@@ -47,10 +47,10 @@ After octocov generates `README.md`, the `Collect` workflow applies four
 These are not part of octocov's output; they are added by the workflow step
 named "Post-process README and commit".
 
-1. **Typo correction**: Replaces the string `Time Execution Time` with
-   `Test Execution Time`. This works around an octocov rendering quirk where the
-   column header text differs from the intended label. The `sed` substitution is
-   a no-op once the upstream issue is fixed.
+1. **Typo correction**: Rewrites the generated `## Repositories` table header
+   cell `Time Execution Time` to `Test Execution Time`. This works around an
+   octocov rendering quirk where the column header text differs from the
+   intended label. The correction is a no-op once the upstream issue is fixed.
 
 2. **DO NOT EDIT header**: Inserts an HTML comment at the top of `README.md`
    that reads:
@@ -76,5 +76,35 @@ named "Post-process README and commit".
    occur.
 
 Readers who compare the committed `README.md` against raw octocov output will
-see the four `README.md` differences listed above. The time badge exclusion
-applies to SVG files only and does not alter `README.md` content.
+see these four differences. They are intentional workflow additions, not
+octocov changes. The time badge exclusion applies to SVG files only and does
+not alter `README.md` content.
+
+## Badge Staging Scope
+
+When the `Collect` workflow commits badge changes, it stages the entire
+`badges/` directory with `git add badges/`. This means the staged set includes
+**all files under `badges/`** that differ from the previous commit — not only
+the SVG files that octocov wrote during the current run.
+
+Concretely, any file under `badges/` that is modified, added, or deleted
+between runs will be included in the next auto-update commit, regardless of
+whether octocov produced it. This design ensures that badge deletions (for
+example, when a member repository is removed from `.octocov.yml`) are picked
+up automatically without a separate cleanup step.
+
+Contributors who add or modify files under `badges/` manually should be aware
+that those changes will be committed by the next scheduled `Collect` run if
+the file differs from `HEAD` at that time.
+
+## Update Schedule
+
+The `Collect` workflow runs on a schedule defined in
+`.github/workflows/central.yml`. The cron expression `0 0,3,6,9 * * *`
+triggers the workflow at **00:00, 03:00, 06:00, and 09:00 UTC** every day.
+GitHub Actions schedules always use UTC regardless of the repository owner's
+local timezone.
+
+The workflow also runs on every push to `main`, on pull requests, and on
+manual dispatch via `workflow_dispatch`. The scheduled runs ensure that badge
+SVGs and the metrics table stay current even without code changes.
