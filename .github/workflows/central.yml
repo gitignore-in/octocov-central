@@ -72,22 +72,24 @@ jobs:
             "the octocov generated table.")
           # Cross-reference link inserted after the "## Repositories" heading (octocov does not add this itself).
           metrics_note='Metric units and precision are described in [Metric Values](docs/metrics.md).'
-          # Workaround: octocov renders the column header as "Time Execution Time"; correct it to "Test Execution Time".
-          # This sed is a no-op once the upstream octocov issue is resolved.
-          sed -i -e 's/Time Execution Time/Test Execution Time/g' README.md
-          grep -q '^## Repositories$' README.md || { printf 'ERROR: ## Repositories heading absent from README.md; metrics_note will not be inserted\n' >&2; exit 1; }
           {
             printf '%s\n\n' "${header}"
             printf '%s\n\n' "${orientation}"
-            METRICS_NOTE="${metrics_note}" awk '
-              BEGIN { note = ENVIRON["METRICS_NOTE"] }
+            awk -v note="${metrics_note}" '
+              in_repositories && !corrected_time_header && /^\| Repository \| Coverage \| Code to Test Ratio \| Time Execution Time \| Badges \|$/ {
+                sub(/\| Time Execution Time \|/, "| Test Execution Time |")
+                corrected_time_header = 1
+              }
               { print }
-              !done && /^## Repositories$/ {
+              /^## Repositories$/ {
+                in_repositories = 1
                 print ""
                 print note
-                done = 1
               }
             ' README.md
+            # Workaround: octocov renders the column header as "Time Execution Time"; correct it to "Test Execution Time".
+            # This sed is a no-op once the upstream octocov issue is resolved.
+            sed -i -e 's/Time Execution Time/Test Execution Time/g' README.md
           } > README.md.tmp
           mv README.md.tmp README.md
           git config user.name 'github-actions[bot]'
