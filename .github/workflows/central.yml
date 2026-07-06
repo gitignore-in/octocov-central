@@ -9,9 +9,6 @@ on:
         default: false
   schedule:
     - cron: '0 0,3,6,9 * * *'  # 00:00, 03:00, 06:00, 09:00 UTC
-  push:
-    branches:
-      - main
   pull_request:
 
 concurrency:
@@ -103,13 +100,19 @@ jobs:
             git diff --cached --stat
           else
             git commit -m "Update by octocov"
-            BRANCH="auto-update/octocov-${GITHUB_RUN_ID}"
-            git checkout -b "${BRANCH}"
-            git push origin "${BRANCH}"
-            gh pr create \
-              --title "Update by octocov" \
-              --body "Automated octocov metrics update." \
-              --base main \
-              --head "${BRANCH}"
-            gh pr merge "${BRANCH}" --merge --auto --delete-branch
+            # Fixed branch, reused across runs: a superseded update is
+            # force-pushed over instead of piling up a new PR per run.
+            BRANCH="auto-update/octocov"
+            git checkout -B "${BRANCH}"
+            git push --force origin "${BRANCH}"
+            if [ "$(gh pr list --head "${BRANCH}" --state open --json number --jq length)" = "0" ]; then
+              gh pr create \
+                --title "Update by octocov" \
+                --body "Automated octocov metrics update." \
+                --base main \
+                --head "${BRANCH}"
+            else
+              echo "Reusing existing open PR for ${BRANCH}"
+            fi
+            gh pr merge "${BRANCH}" --merge --auto --delete-branch || true
           fi
