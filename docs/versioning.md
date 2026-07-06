@@ -75,9 +75,10 @@ the current `.octocov.yml` was written and tested against.
 ## Artifact format contract
 
 Member repositories publish octocov report artifacts under the name
-`octocov-report`.  The central workflow reads these artifacts using the same
-`k1LoW/octocov-action` version.  If a member repository upgrades its octocov
-version ahead of the central pin, the artifact format may diverge.
+`octocov-report`.  The central workflow reads these artifacts from each
+repository's default branch using the same `k1LoW/octocov-action` version.
+If a member repository upgrades its octocov version ahead of the central pin,
+the artifact format may diverge.
 
 To stay in sync:
 

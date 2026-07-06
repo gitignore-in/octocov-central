@@ -96,12 +96,47 @@ def get_json_pages(api_url: str, token: str | None, path: str) -> list[dict[str,
     return pages
 
 
-def latest_unexpired_artifact(
+def get_repo_default_branch(
+    api_url: str,
+    token: str | None,
+    owner: str,
+    repo: str,
+) -> str:
+    pages = get_json_pages(api_url, token, f"repos/{owner}/{repo}")
+    repo_info = pages[0] if pages else {}
+    default_branch = repo_info.get("default_branch")
+    if not default_branch:
+        raise ArtifactError(f"{owner}/{repo} has no default branch metadata")
+    return default_branch
+
+
+def select_latest_artifact(
+    artifacts: list[dict[str, Any]],
+    default_branch: str,
+) -> dict[str, Any] | None:
+    selected = [
+        artifact
+        for artifact in artifacts
+        if artifact.get("expired") is False
+        and (artifact.get("workflow_run") or {}).get("head_branch") == default_branch
+    ]
+    selected.sort(
+        key=lambda artifact: (
+            artifact.get("created_at") or "",
+            artifact.get("id") or 0,
+        ),
+        reverse=True,
+    )
+    return selected[0] if selected else None
+
+
+def latest_default_branch_artifact(
     api_url: str,
     token: str | None,
     owner: str,
     repo: str,
     artifact_name: str,
+    default_branch: str,
 ) -> dict[str, Any] | None:
     query = urlencode({"per_page": "100", "name": artifact_name})
     pages = get_json_pages(api_url, token, f"repos/{owner}/{repo}/actions/artifacts?{query}")
@@ -109,16 +144,9 @@ def latest_unexpired_artifact(
         artifact
         for page in pages
         for artifact in page.get("artifacts", [])
-        if artifact.get("name") == artifact_name and artifact.get("expired") is False
+        if artifact.get("name") == artifact_name
     ]
-    artifacts.sort(
-        key=lambda artifact: (
-            artifact.get("created_at") or "",
-            artifact.get("id") or 0,
-        ),
-        reverse=True,
-    )
-    return artifacts[0] if artifacts else None
+    return select_latest_artifact(artifacts, default_branch)
 
 
 def artifact_metadata(
@@ -188,15 +216,20 @@ def main() -> int:
             )
             return 1
 
-        artifact = latest_unexpired_artifact(
+        default_branch = get_repo_default_branch(args.api_url, token, owner, repo)
+        artifact = latest_default_branch_artifact(
             args.api_url,
             token,
             owner,
             repo,
             artifact_name,
+            default_branch,
         )
         if artifact is None:
-            emit_error("Missing octocov artifact", f"{source} has no unexpired artifact")
+            emit_error(
+                "Missing octocov artifact",
+                f"{source} has no unexpired artifact on default branch {default_branch}",
+            )
             return 1
         metadata.append(artifact_metadata(source, owner, repo, artifact_name, artifact))
 

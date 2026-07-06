@@ -27,8 +27,9 @@ with "Require review from Code Owners" enabled.
 
 The Collect workflow checks every `.octocov.yml` `artifact://` URI before
 running octocov. Each source repository must have at least one unexpired
-artifact with the configured artifact name. If any source artifact is missing,
-expired, or inaccessible, the workflow fails before octocov can regenerate
+artifact with the configured artifact name on the repository's default branch.
+If any source artifact is missing, expired, inaccessible, or only available
+from a non-default branch, the workflow fails before octocov can regenerate
 `README.md` or SVG badges.
 
 This makes artifact outages fail closed. The committed files under `badges/`

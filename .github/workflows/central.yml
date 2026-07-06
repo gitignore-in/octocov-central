@@ -34,6 +34,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/check-octocov-source-artifacts.py
 
+      - name: Test source artifact selection
+        run: python3 scripts/test-check-octocov-source-artifacts.py
+
       - name: Test badge state parser
         run: python3 scripts/test-check-badge-state.py
 
