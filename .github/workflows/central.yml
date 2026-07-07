@@ -37,8 +37,14 @@ jobs:
       - name: Test badge state parser
         run: python3 scripts/test-check-badge-state.py
 
+      - name: Test README badge contract parser
+        run: python3 scripts/test-check-readme-badge-contract.py
+
       - name: Check badge state consistency
         run: python3 scripts/check-badge-state.py
+
+      - name: Check README badge contract
+        run: python3 scripts/check-readme-badge-contract.py
 
       - name: Run octocov
         uses: k1LoW/octocov-action@b3b6ee60482a667950f87553abf1df63217235d9 # v1.5.1
