@@ -106,6 +106,28 @@ jobs:
           mv README.md.tmp README.md
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          AUTO_UPDATE_PR_TITLE="Update by octocov"
+          AUTO_UPDATE_BRANCH="auto-update/octocov"
+
+          # Close stale auto-update PRs created by prior run-id based branches.
+          STALE_PR_COUNT=0
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "Dry run: skip stale PR cleanup."
+          else
+            while IFS= read -r stale_pr_number; do
+              STALE_PR_COUNT=$((STALE_PR_COUNT + 1))
+              echo "Closing superseded auto-update PR #${stale_pr_number}"
+              gh pr close "${stale_pr_number}" --delete-branch --comment "Superseded by current auto-update/octocov branch." || true
+            done < <(
+              gh pr list --base main --state open --json number,title,headRefName --jq \
+                --arg title "${AUTO_UPDATE_PR_TITLE}" --arg branch "${AUTO_UPDATE_BRANCH}" \
+                '[.[] | select(.title == $title and .headRefName != $branch) | .number]'
+            )
+          fi
+
+          echo "Closed ${STALE_PR_COUNT} stale auto-update PRs."
+
           git add -A -- README.md badges/
           git restore --staged -- 'badges/**/time.svg'
           if git diff --cached --quiet; then
@@ -117,7 +139,7 @@ jobs:
             git commit -m "Update by octocov"
             # Fixed branch, reused across runs: a superseded update is
             # force-pushed over instead of piling up a new PR per run.
-            BRANCH="auto-update/octocov"
+            BRANCH="${AUTO_UPDATE_BRANCH}"
             REMOTE_BRANCH_PUSHED=0
             PR_CREATED=0
             git checkout -B "${BRANCH}"
@@ -125,7 +147,7 @@ jobs:
             REMOTE_BRANCH_PUSHED=1
             if [ "$(gh pr list --head "${BRANCH}" --state open --json number --jq length)" = "0" ]; then
               gh pr create \
-                --title "Update by octocov" \
+                --title "${AUTO_UPDATE_PR_TITLE}" \
                 --body "Automated octocov metrics update." \
                 --base main \
                 --head "${BRANCH}"
