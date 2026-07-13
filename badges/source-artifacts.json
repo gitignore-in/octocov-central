@@ -1,20 +1,20 @@
 {
-  "generated_at": "2026-07-12T10:37:12Z",
+  "generated_at": "2026-07-13T09:36:27Z",
   "sources": [
     {
       "source": "artifact://gitignore-in/gitignore-in/octocov-report",
       "repository": "gitignore-in/gitignore-in",
       "artifact_name": "octocov-report",
-      "artifact_id": 8248533309,
+      "artifact_id": 8262358051,
       "digest": "",
-      "size_in_bytes": 19510,
-      "created_at": "2026-07-11T12:21:44Z",
-      "expires_at": "2026-10-09T12:20:34Z",
-      "archive_download_url": "https://api.github.com/repos/gitignore-in/gitignore-in/actions/artifacts/8248533309/zip",
+      "size_in_bytes": 19509,
+      "created_at": "2026-07-12T16:52:14Z",
+      "expires_at": "2026-10-10T16:50:00Z",
+      "archive_download_url": "https://api.github.com/repos/gitignore-in/gitignore-in/actions/artifacts/8262358051/zip",
       "workflow_run": {
-        "id": 29152464087,
+        "id": 29200855856,
         "head_branch": "main",
-        "head_sha": "075b03664f8e6a8b47f92edda3862c1af8dbb5bf",
+        "head_sha": "9d61847f79283af2f2339479c05c6102d217183c",
         "repository_id": 652453259,
         "head_repository_id": 652453259
       }
@@ -23,16 +23,16 @@
       "source": "artifact://gitignore-in/website/octocov-report",
       "repository": "gitignore-in/website",
       "artifact_name": "octocov-report",
-      "artifact_id": 8247171033,
+      "artifact_id": 8267254586,
       "digest": "",
       "size_in_bytes": 1351,
-      "created_at": "2026-07-11T09:16:06Z",
-      "expires_at": "2026-10-09T09:14:27Z",
-      "archive_download_url": "https://api.github.com/repos/gitignore-in/website/actions/artifacts/8247171033/zip",
+      "created_at": "2026-07-13T01:45:11Z",
+      "expires_at": "2026-10-11T01:43:23Z",
+      "archive_download_url": "https://api.github.com/repos/gitignore-in/website/actions/artifacts/8267254586/zip",
       "workflow_run": {
-        "id": 29147406276,
+        "id": 29217995775,
         "head_branch": "main",
-        "head_sha": "9f073c2f393bec932b3c10bcae49e397e1b54d64",
+        "head_sha": "db577d7567ef49d92d5340d6d64fb2849899e020",
         "repository_id": 722598626,
         "head_repository_id": 722598626
       }
