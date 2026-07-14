@@ -97,6 +97,11 @@ Contributors who add or modify files under `badges/` manually should be aware
 that those changes will be committed by the next scheduled `Collect` run if
 the file differs from `HEAD` at that time.
 
+The `generated_at` value in `badges/source-artifacts.json` records when the
+current source artifact metadata was first observed. A later run that resolves
+to the same metadata preserves this value, so a timestamp-only change does not
+create an automated pull request.
+
 ## Update Schedule
 
 The `Collect` workflow runs on a schedule defined in

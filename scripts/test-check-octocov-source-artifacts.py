@@ -2,7 +2,9 @@
 """Regression tests for check-octocov-source-artifacts.py."""
 
 import importlib.util
+import json
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -74,9 +76,64 @@ def test_select_latest_artifact_returns_none_without_default_branch_match() -> N
     assert module.select_latest_artifact(artifacts, "main") is None
 
 
+def test_build_output_payload_preserves_timestamp_when_sources_are_unchanged() -> None:
+    module = load_module()
+    metadata = [{"source": "artifact://gitignore-in/example/octocov-report"}]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "source-artifacts.json"
+        output_path.write_text(
+            '{"generated_at":"2026-07-13T00:00:00Z","sources":'
+            '[{"source":"artifact://gitignore-in/example/octocov-report"}]}',
+            encoding="utf-8",
+        )
+
+        payload = module.build_output_payload(
+            output_path,
+            metadata,
+            "2026-07-14T00:00:00Z",
+        )
+
+    assert payload["generated_at"] == "2026-07-13T00:00:00Z"
+    assert payload["sources"] == metadata
+
+
+def test_build_output_payload_updates_timestamp_when_sources_change() -> None:
+    module = load_module()
+    previous_metadata = [
+        {"source": "artifact://gitignore-in/example/octocov-report", "artifact_id": 1}
+    ]
+    current_metadata = [
+        {"source": "artifact://gitignore-in/example/octocov-report", "artifact_id": 2}
+    ]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "source-artifacts.json"
+        output_path.write_text(
+            json.dumps(
+                {
+                    "generated_at": "2026-07-13T00:00:00Z",
+                    "sources": previous_metadata,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        payload = module.build_output_payload(
+            output_path,
+            current_metadata,
+            "2026-07-14T00:00:00Z",
+        )
+
+    assert payload["generated_at"] == "2026-07-14T00:00:00Z"
+    assert payload["sources"] == current_metadata
+
+
 def main() -> int:
     test_select_latest_artifact_prefers_default_branch()
     test_select_latest_artifact_returns_none_without_default_branch_match()
+    test_build_output_payload_preserves_timestamp_when_sources_are_unchanged()
+    test_build_output_payload_updates_timestamp_when_sources_change()
     print("OK: check-octocov-source-artifacts selection tests passed.")
     return 0
 

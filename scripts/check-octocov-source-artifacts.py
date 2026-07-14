@@ -191,6 +191,28 @@ def write_json_atomic(output_path: Path, payload: dict[str, Any]) -> None:
     temp_path.replace(output_path)
 
 
+def build_output_payload(
+    output_path: Path,
+    metadata: list[dict[str, Any]],
+    generated_at: str,
+) -> dict[str, Any]:
+    if output_path.exists():
+        try:
+            existing = json.loads(output_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            existing = {}
+        if (
+            existing.get("sources") == metadata
+            and isinstance(existing.get("generated_at"), str)
+        ):
+            generated_at = existing["generated_at"]
+
+    return {
+        "generated_at": generated_at,
+        "sources": metadata,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path(".octocov.yml"))
@@ -233,13 +255,13 @@ def main() -> int:
             return 1
         metadata.append(artifact_metadata(source, owner, repo, artifact_name, artifact))
 
-    payload = {
-        "generated_at": datetime.now(timezone.utc)
+    generated_at = (
+        datetime.now(timezone.utc)
         .replace(microsecond=0)
         .isoformat()
-        .replace("+00:00", "Z"),
-        "sources": metadata,
-    }
+        .replace("+00:00", "Z")
+    )
+    payload = build_output_payload(args.output, metadata, generated_at)
     write_json_atomic(args.output, payload)
     print(f"Checked {len(metadata)} octocov source artifacts")
     print(f"Wrote {args.output}")
