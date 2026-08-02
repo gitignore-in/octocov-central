@@ -40,6 +40,34 @@ directly.
 Sub-second changes may not be visible in the rendered badge. Use the source
 repository's CI logs when precise timing is required.
 
+## Quality Gates
+
+This repository does not fail, warn, or otherwise flag Coverage, Code to Test
+Ratio, or Test Execution Time when a value regresses. The `Collect` workflow
+always succeeds and commits the latest aggregated values as long as source
+artifacts are available and the checks in
+[Security and Trust Boundaries](security.md) pass; it never inspects the
+metric values themselves to decide success or failure.
+
+This is not an oversight: `octocov`'s `acceptable` threshold check is a
+per-repository feature of octocov's normal (non-central) mode, and the
+[octocov documentation](https://github.com/k1LoW/octocov#central) states that
+enabling `central:` mode "automatically turns off" octocov's other functions,
+`acceptable` included. Because `.octocov.yml` in this repository only
+configures `central.reports` and `central.badges`, there is no octocov config
+field this repository could set to make the `Collect` workflow fail on a
+regressed value; setting `acceptable` fields here would be silently ignored
+and would misrepresent this repository as gating when it does not.
+
+Consumers who need a build to fail when Coverage, Code to Test Ratio, or Test
+Execution Time regresses should configure `coverage.acceptable`,
+`codeToTestRatio.acceptable`, and `testExecutionTime.acceptable` in the
+**source repository's own** `.octocov.yml` (non-central mode), where octocov
+runs against that repository's own reports and can enforce the threshold in
+that repository's own CI. This repository only aggregates and displays
+already-computed values for cross-repository comparison; it is not a
+substitute for a source repository's own quality gate.
+
 ## README Post-processing
 
 After octocov generates `README.md`, the `Collect` workflow applies four
