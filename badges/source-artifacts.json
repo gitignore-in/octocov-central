@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-07T10:03:46Z",
+  "generated_at": "2026-08-08T04:13:03Z",
   "sources": [
     {
       "source": "artifact://gitignore-in/gitignore-in/octocov-report",
@@ -23,16 +23,16 @@
       "source": "artifact://gitignore-in/website/octocov-report",
       "repository": "gitignore-in/website",
       "artifact_name": "octocov-report",
-      "artifact_id": 8937539021,
+      "artifact_id": 8991633795,
       "digest": "",
-      "size_in_bytes": 1505,
-      "created_at": "2026-08-05T16:03:02Z",
-      "expires_at": "2026-11-03T16:01:38Z",
-      "archive_download_url": "https://api.github.com/repos/gitignore-in/website/actions/artifacts/8937539021/zip",
+      "size_in_bytes": 1507,
+      "created_at": "2026-08-07T11:07:47Z",
+      "expires_at": "2026-11-05T11:06:12Z",
+      "archive_download_url": "https://api.github.com/repos/gitignore-in/website/actions/artifacts/8991633795/zip",
       "workflow_run": {
-        "id": 31023255552,
+        "id": 31172726853,
         "head_branch": "main",
-        "head_sha": "dce096e90a8e1d65de4dee2ef491ac3685072088",
+        "head_sha": "236fdd95e494f5ffb95d022b75507bd86a38388e",
         "repository_id": 722598626,
         "head_repository_id": 722598626
       }
