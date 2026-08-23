@@ -168,6 +168,71 @@ def test_write_resolved_config_rewrites_artifact_datastores_to_local_paths() -> 
     assert "artifact://gitignore-in/gitignore-in/octocov-report" not in resolved_text
     assert f"- local://{pinned_dir.resolve().as_posix()}" in resolved_text
     assert "# keep comment" in resolved_text
+    assert "- local://badges" not in resolved_text
+    assert f"- local://{(tmpdir_path / 'badges').resolve().as_posix()}" in resolved_text
+    assert f"  root: {tmpdir_path.resolve().as_posix()}" in resolved_text
+
+
+def test_write_resolved_config_anchors_relative_local_datastores_at_config_dir() -> None:
+    module = load_module()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        config_path = tmpdir_path / ".octocov.yml"
+        resolved_path = tmpdir_path / "resolved.yml"
+        config_path.write_text(
+            """central:
+  reports:
+    datastores:
+      - artifact://gitignore-in/gitignore-in/octocov-report
+  badges:
+    datastores:
+      - local://badges
+""",
+            encoding="utf-8",
+        )
+
+        # No replacement supplied for the artifact:// source: the point of
+        # this test is that the *relative* local:// badges datastore is
+        # still rewritten to an absolute path anchored at config_path's
+        # directory, since octocov resolves it against wherever the
+        # --config file it was given lives (which is the resolved copy's
+        # directory, not necessarily the original .octocov.yml directory).
+        module.write_resolved_config(config_path, resolved_path, {})
+
+        resolved_text = resolved_path.read_text(encoding="utf-8")
+
+    assert "- local://badges" not in resolved_text
+    assert f"- local://{(tmpdir_path / 'badges').resolve().as_posix()}" in resolved_text
+    assert f"  root: {tmpdir_path.resolve().as_posix()}" in resolved_text
+
+
+def test_write_resolved_config_does_not_override_explicit_central_root() -> None:
+    module = load_module()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        config_path = tmpdir_path / ".octocov.yml"
+        resolved_path = tmpdir_path / "resolved.yml"
+        config_path.write_text(
+            """central:
+  root: /explicit/root
+  reports:
+    datastores:
+      - artifact://gitignore-in/gitignore-in/octocov-report
+  badges:
+    datastores:
+      - local://badges
+""",
+            encoding="utf-8",
+        )
+
+        module.write_resolved_config(config_path, resolved_path, {})
+
+        resolved_text = resolved_path.read_text(encoding="utf-8")
+
+    assert resolved_text.count("root:") == 1
+    assert "root: /explicit/root" in resolved_text
 
 
 def test_materialize_artifact_archive_extracts_zip_payload() -> None:
@@ -243,6 +308,8 @@ def main() -> int:
     test_build_output_payload_preserves_timestamp_when_sources_are_unchanged()
     test_build_output_payload_updates_timestamp_when_sources_change()
     test_write_resolved_config_rewrites_artifact_datastores_to_local_paths()
+    test_write_resolved_config_anchors_relative_local_datastores_at_config_dir()
+    test_write_resolved_config_does_not_override_explicit_central_root()
     test_materialize_artifact_archive_extracts_zip_payload()
     test_open_artifact_url_strips_authorization_on_cross_host_redirect()
     print("OK: check-octocov-source-artifacts selection tests passed.")

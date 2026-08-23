@@ -22,6 +22,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 ARTIFACT_RE = re.compile(
     r"^\s*-\s*artifact://([^/\s]+)/([^/\s]+)/(.+?)\s*(?:#.*)?$"
 )
+RELATIVE_LOCAL_RE = re.compile(r"^\s*-\s*local://([^/\s].*?)\s*(?:#.*)?$")
 DEFAULT_ALLOWED_OWNER = "gitignore-in"
 DEFAULT_API_URL = "https://api.github.com"
 
@@ -248,29 +249,65 @@ def write_resolved_config(
     output_path: Path,
     replacements: dict[str, str],
 ) -> None:
+    # octocov resolves relative local:// datastores (e.g. the badges output
+    # datastore) against the directory of the --config file it was given, not
+    # against the original .octocov.yml location. Since output_path lives
+    # outside the repository (a runner-temp copy), any relative local://
+    # entry must be rewritten to an absolute path anchored at config_path's
+    # directory here, or octocov-action fails immediately trying to stat a
+    # directory that never existed under the temp location.
+    config_root = config_path.resolve().parent
+    config_text = config_path.read_text(encoding="utf-8")
+    has_explicit_central_root = bool(re.search(r"(?m)^\s{2}root:\s*\S", config_text))
     resolved_lines: list[str] = []
-    for line in config_path.read_text(encoding="utf-8").splitlines():
+    for line in config_text.splitlines():
+        if not has_explicit_central_root and re.match(r"^central:\s*$", line):
+            # Same reasoning as the local:// rewrite below: octocov also
+            # anchors the default central.root ("." when unset) at the
+            # --config file's directory, which would otherwise point
+            # README/index output at the runner-temp copy's directory
+            # instead of the checked-out repository.
+            resolved_lines.append(line)
+            resolved_lines.append(f"  root: {config_root.as_posix()}")
+            continue
+
         match = ARTIFACT_RE.match(line)
-        if not match:
-            resolved_lines.append(line)
+        if match:
+            owner, repo, artifact_name = match.groups()
+            source = f"artifact://{owner}/{repo}/{artifact_name.strip()}"
+            replacement = replacements.get(source)
+            if replacement is None:
+                resolved_lines.append(line)
+                continue
+
+            prefix, _, suffix = line.partition("artifact://")
+            source_fragment, comment_fragment = suffix, ""
+            if "#" in suffix:
+                source_fragment, comment_fragment = suffix.split("#", 1)
+                comment_fragment = "#" + comment_fragment
+            trailing_ws = source_fragment[len(source_fragment.rstrip()):]
+            resolved_lines.append(
+                f"{prefix}{replacement}{trailing_ws}{comment_fragment}"
+            )
             continue
 
-        owner, repo, artifact_name = match.groups()
-        source = f"artifact://{owner}/{repo}/{artifact_name.strip()}"
-        replacement = replacements.get(source)
-        if replacement is None:
-            resolved_lines.append(line)
+        local_match = RELATIVE_LOCAL_RE.match(line)
+        if local_match:
+            relative_path = local_match.group(1)
+            replacement = render_local_datastore_url(config_root / relative_path)
+
+            prefix, _, suffix = line.partition("local://")
+            source_fragment, comment_fragment = suffix, ""
+            if "#" in suffix:
+                source_fragment, comment_fragment = suffix.split("#", 1)
+                comment_fragment = "#" + comment_fragment
+            trailing_ws = source_fragment[len(source_fragment.rstrip()):]
+            resolved_lines.append(
+                f"{prefix}{replacement}{trailing_ws}{comment_fragment}"
+            )
             continue
 
-        prefix, _, suffix = line.partition("artifact://")
-        source_fragment, comment_fragment = suffix, ""
-        if "#" in suffix:
-            source_fragment, comment_fragment = suffix.split("#", 1)
-            comment_fragment = "#" + comment_fragment
-        trailing_ws = source_fragment[len(source_fragment.rstrip()):]
-        resolved_lines.append(
-            f"{prefix}{replacement}{trailing_ws}{comment_fragment}"
-        )
+        resolved_lines.append(line)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("\n".join(resolved_lines) + "\n", encoding="utf-8")
