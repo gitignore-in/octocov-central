@@ -5,6 +5,8 @@ import importlib.util
 import json
 import sys
 import tempfile
+import zipfile
+from io import BytesIO
 from pathlib import Path
 
 
@@ -129,11 +131,89 @@ def test_build_output_payload_updates_timestamp_when_sources_change() -> None:
     assert payload["sources"] == current_metadata
 
 
+def test_write_resolved_config_rewrites_artifact_datastores_to_local_paths() -> None:
+    module = load_module()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        config_path = tmpdir_path / ".octocov.yml"
+        resolved_path = tmpdir_path / "resolved.yml"
+        pinned_dir = tmpdir_path / "reports" / "gitignore-in" / "gitignore-in" / "octocov-report"
+        config_path.write_text(
+            """central:
+  reports:
+    datastores:
+      - artifact://gitignore-in/gitignore-in/octocov-report
+      - artifact://gitignore-in/website/octocov-report # keep comment
+  badges:
+    datastores:
+      - local://badges
+""",
+            encoding="utf-8",
+        )
+
+        module.write_resolved_config(
+            config_path,
+            resolved_path,
+            {
+                "artifact://gitignore-in/gitignore-in/octocov-report": module.render_local_datastore_url(pinned_dir),
+                "artifact://gitignore-in/website/octocov-report": module.render_local_datastore_url(
+                    tmpdir_path / "reports" / "gitignore-in" / "website" / "octocov-report"
+                ),
+            },
+        )
+
+        resolved_text = resolved_path.read_text(encoding="utf-8")
+
+    assert "artifact://gitignore-in/gitignore-in/octocov-report" not in resolved_text
+    assert f"- local://{pinned_dir.resolve().as_posix()}" in resolved_text
+    assert "# keep comment" in resolved_text
+
+
+def test_materialize_artifact_archive_extracts_zip_payload() -> None:
+    module = load_module()
+
+    class FakeResponse:
+        def __init__(self, payload: bytes) -> None:
+            self.payload = payload
+
+        def read(self) -> bytes:
+            return self.payload
+
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    artifact_zip = BytesIO()
+    with zipfile.ZipFile(artifact_zip, "w") as archive:
+        archive.writestr("report.json", '{"repository":"gitignore-in/gitignore-in"}')
+
+    original_urlopen = module.urlopen
+    module.urlopen = lambda request, timeout=30: FakeResponse(artifact_zip.getvalue())
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            destination = Path(tmpdir) / "reports"
+            module.materialize_artifact_archive(
+                "https://api.github.com/repos/gitignore-in/gitignore-in/actions/artifacts/1/zip",
+                "token",
+                destination,
+            )
+            extracted = (destination / "report.json").read_text(encoding="utf-8")
+    finally:
+        module.urlopen = original_urlopen
+
+    assert json.loads(extracted) == {"repository": "gitignore-in/gitignore-in"}
+
+
 def main() -> int:
     test_select_latest_artifact_prefers_default_branch()
     test_select_latest_artifact_returns_none_without_default_branch_match()
     test_build_output_payload_preserves_timestamp_when_sources_are_unchanged()
     test_build_output_payload_updates_timestamp_when_sources_change()
+    test_write_resolved_config_rewrites_artifact_datastores_to_local_paths()
+    test_materialize_artifact_archive_extracts_zip_payload()
     print("OK: check-octocov-source-artifacts selection tests passed.")
     return 0
 

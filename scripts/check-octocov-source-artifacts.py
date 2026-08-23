@@ -9,7 +9,9 @@ import os
 import re
 import sys
 import tempfile
+import zipfile
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -30,6 +32,15 @@ class ArtifactError(RuntimeError):
 
 def emit_error(title: str, message: str) -> None:
     print(f"::error title={title}::{message}", file=sys.stderr)
+
+
+def github_request_headers(token: str | None) -> dict[str, str]:
+    return {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "octocov-central-artifact-check",
+        "X-GitHub-Api-Version": "2022-11-28",
+        **({"Authorization": f"Bearer {token}"} if token else {}),
+    }
 
 
 def parse_artifact_sources(config_path: Path) -> list[tuple[str, str, str]]:
@@ -74,12 +85,7 @@ def get_json_pages(api_url: str, token: str | None, path: str) -> list[dict[str,
     while url:
         request = Request(
             url,
-            headers={
-                "Accept": "application/vnd.github+json",
-                "User-Agent": "octocov-central-artifact-check",
-                "X-GitHub-Api-Version": "2022-11-28",
-                **({"Authorization": f"Bearer {token}"} if token else {}),
-            },
+            headers=github_request_headers(token),
         )
         try:
             with urlopen(request, timeout=30) as response:
@@ -177,6 +183,84 @@ def artifact_metadata(
     }
 
 
+def local_datastore_path(
+    materialize_root: Path,
+    owner: str,
+    repo: str,
+    artifact_name: str,
+) -> Path:
+    return materialize_root / owner / repo / artifact_name
+
+
+def materialize_artifact_archive(
+    archive_download_url: str,
+    token: str | None,
+    destination_dir: Path,
+) -> None:
+    request = Request(
+        archive_download_url,
+        headers=github_request_headers(token),
+    )
+    try:
+        with urlopen(request, timeout=30) as response:
+            archive_bytes = response.read()
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise ArtifactError(
+            f"GitHub artifact download returned HTTP {exc.code} for {archive_download_url}: {body}"
+        ) from exc
+    except URLError as exc:
+        raise ArtifactError(
+            f"Cannot download GitHub artifact {archive_download_url}: {exc}"
+        ) from exc
+
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        with zipfile.ZipFile(BytesIO(archive_bytes)) as archive:
+            archive.extractall(destination_dir)
+    except zipfile.BadZipFile as exc:
+        raise ArtifactError(
+            f"GitHub artifact {archive_download_url} is not a valid zip archive"
+        ) from exc
+
+
+def render_local_datastore_url(path: Path) -> str:
+    return f"local://{path.resolve().as_posix()}"
+
+
+def write_resolved_config(
+    config_path: Path,
+    output_path: Path,
+    replacements: dict[str, str],
+) -> None:
+    resolved_lines: list[str] = []
+    for line in config_path.read_text(encoding="utf-8").splitlines():
+        match = ARTIFACT_RE.match(line)
+        if not match:
+            resolved_lines.append(line)
+            continue
+
+        owner, repo, artifact_name = match.groups()
+        source = f"artifact://{owner}/{repo}/{artifact_name.strip()}"
+        replacement = replacements.get(source)
+        if replacement is None:
+            resolved_lines.append(line)
+            continue
+
+        prefix, _, suffix = line.partition("artifact://")
+        source_fragment, comment_fragment = suffix, ""
+        if "#" in suffix:
+            source_fragment, comment_fragment = suffix.split("#", 1)
+            comment_fragment = "#" + comment_fragment
+        trailing_ws = source_fragment[len(source_fragment.rstrip()):]
+        resolved_lines.append(
+            f"{prefix}{replacement}{trailing_ws}{comment_fragment}"
+        )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("\n".join(resolved_lines) + "\n", encoding="utf-8")
+
+
 def write_json_atomic(output_path: Path, payload: dict[str, Any]) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
@@ -221,13 +305,31 @@ def main() -> int:
         type=Path,
         default=Path("badges/source-artifacts.json"),
     )
+    parser.add_argument(
+        "--resolved-config",
+        type=Path,
+        default=None,
+        help="Write a copy of the config with artifact:// report datastores pinned to local:// paths",
+    )
+    parser.add_argument(
+        "--materialize-root",
+        type=Path,
+        default=None,
+        help="Download and extract the selected artifact archives under this directory",
+    )
     parser.add_argument("--api-url", default=os.environ.get("GITHUB_API_URL", DEFAULT_API_URL))
     parser.add_argument("--allowed-owner", action="append", default=[DEFAULT_ALLOWED_OWNER])
     args = parser.parse_args()
 
+    if (args.resolved_config is None) != (args.materialize_root is None):
+        raise ArtifactError(
+            "--resolved-config and --materialize-root must be provided together"
+        )
+
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
     sources = parse_artifact_sources(args.config)
     metadata: list[dict[str, Any]] = []
+    replacements: dict[str, str] = {}
 
     for owner, repo, artifact_name in sources:
         source = f"artifact://{owner}/{repo}/{artifact_name}"
@@ -253,7 +355,24 @@ def main() -> int:
                 f"{source} has no unexpired artifact on default branch {default_branch}",
             )
             return 1
-        metadata.append(artifact_metadata(source, owner, repo, artifact_name, artifact))
+        source_metadata = artifact_metadata(source, owner, repo, artifact_name, artifact)
+        metadata.append(source_metadata)
+        if args.materialize_root is not None:
+            archive_download_url = source_metadata.get("archive_download_url")
+            if not isinstance(archive_download_url, str) or not archive_download_url:
+                raise ArtifactError(f"{source} is missing archive_download_url metadata")
+            destination_dir = local_datastore_path(
+                args.materialize_root,
+                owner,
+                repo,
+                artifact_name,
+            )
+            materialize_artifact_archive(
+                archive_download_url,
+                token,
+                destination_dir,
+            )
+            replacements[source] = render_local_datastore_url(destination_dir)
 
     generated_at = (
         datetime.now(timezone.utc)
@@ -265,6 +384,9 @@ def main() -> int:
     write_json_atomic(args.output, payload)
     print(f"Checked {len(metadata)} octocov source artifacts")
     print(f"Wrote {args.output}")
+    if args.resolved_config is not None:
+        write_resolved_config(args.config, args.resolved_config, replacements)
+        print(f"Wrote {args.resolved_config}")
     return 0
 
 
