@@ -190,8 +190,8 @@ def test_materialize_artifact_archive_extracts_zip_payload() -> None:
     with zipfile.ZipFile(artifact_zip, "w") as archive:
         archive.writestr("report.json", '{"repository":"gitignore-in/gitignore-in"}')
 
-    original_urlopen = module.urlopen
-    module.urlopen = lambda request, timeout=30: FakeResponse(artifact_zip.getvalue())
+    original_open_artifact_url = module.open_artifact_url
+    module.open_artifact_url = lambda request, timeout=30: FakeResponse(artifact_zip.getvalue())
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
             destination = Path(tmpdir) / "reports"
@@ -202,9 +202,39 @@ def test_materialize_artifact_archive_extracts_zip_payload() -> None:
             )
             extracted = (destination / "report.json").read_text(encoding="utf-8")
     finally:
-        module.urlopen = original_urlopen
+        module.open_artifact_url = original_open_artifact_url
 
     assert json.loads(extracted) == {"repository": "gitignore-in/gitignore-in"}
+
+
+def test_open_artifact_url_strips_authorization_on_cross_host_redirect() -> None:
+    module = load_module()
+
+    request = module.Request(
+        "https://api.github.com/repos/gitignore-in/gitignore-in/actions/artifacts/1/zip",
+        headers=module.github_request_headers("token"),
+    )
+    handler = module._StripAuthOnCrossHostRedirect()
+
+    same_host_redirect = handler.redirect_request(
+        request,
+        None,
+        302,
+        "Found",
+        {},
+        "https://api.github.com/repos/gitignore-in/gitignore-in/actions/artifacts/1/zip/redirected",
+    )
+    assert same_host_redirect.get_header("Authorization") is not None
+
+    cross_host_redirect = handler.redirect_request(
+        request,
+        None,
+        302,
+        "Found",
+        {},
+        "https://productionresultssa0.blob.core.windows.net/artifacts/1.zip?sig=abc",
+    )
+    assert cross_host_redirect.get_header("Authorization") is None
 
 
 def main() -> int:
@@ -214,6 +244,7 @@ def main() -> int:
     test_build_output_payload_updates_timestamp_when_sources_change()
     test_write_resolved_config_rewrites_artifact_datastores_to_local_paths()
     test_materialize_artifact_archive_extracts_zip_payload()
+    test_open_artifact_url_strips_authorization_on_cross_host_redirect()
     print("OK: check-octocov-source-artifacts selection tests passed.")
     return 0
 

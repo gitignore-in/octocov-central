@@ -15,8 +15,8 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.parse import urlencode, urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
 
 ARTIFACT_RE = re.compile(
@@ -183,6 +183,21 @@ def artifact_metadata(
     }
 
 
+class _StripAuthOnCrossHostRedirect(HTTPRedirectHandler):
+    """GitHub artifact downloads redirect to blob storage that rejects the
+    GitHub API Authorization header (HTTP 401 InvalidAuthenticationInfo)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new_request = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new_request is not None and urlsplit(newurl).netloc != urlsplit(req.full_url).netloc:
+            new_request.remove_header("Authorization")
+        return new_request
+
+
+def open_artifact_url(request: Request, timeout: int = 30):
+    return build_opener(_StripAuthOnCrossHostRedirect()).open(request, timeout=timeout)
+
+
 def local_datastore_path(
     materialize_root: Path,
     owner: str,
@@ -202,7 +217,7 @@ def materialize_artifact_archive(
         headers=github_request_headers(token),
     )
     try:
-        with urlopen(request, timeout=30) as response:
+        with open_artifact_url(request, timeout=30) as response:
             archive_bytes = response.read()
     except HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
