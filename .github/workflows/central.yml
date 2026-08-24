@@ -32,7 +32,10 @@ jobs:
       - name: Check source artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/check-octocov-source-artifacts.py
+        run: |
+          python3 scripts/check-octocov-source-artifacts.py \
+            --materialize-root "${{ runner.temp }}/octocov-central-reports" \
+            --resolved-config "${{ runner.temp }}/octocov-central-resolved.yml"
 
       - name: Test source artifact selection
         run: python3 scripts/test-check-octocov-source-artifacts.py
@@ -51,6 +54,8 @@ jobs:
 
       - name: Run octocov
         uses: k1LoW/octocov-action@a167dc0dee441b7ffc45e1b862ab55ec0d87f278 # v1.5.2
+        with:
+          config: ${{ runner.temp }}/octocov-central-resolved.yml
 
       - name: Post-process README and commit
         if: github.event_name != 'pull_request'

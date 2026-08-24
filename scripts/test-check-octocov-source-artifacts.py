@@ -5,6 +5,8 @@ import importlib.util
 import json
 import sys
 import tempfile
+import zipfile
+from io import BytesIO
 from pathlib import Path
 
 
@@ -129,11 +131,187 @@ def test_build_output_payload_updates_timestamp_when_sources_change() -> None:
     assert payload["sources"] == current_metadata
 
 
+def test_write_resolved_config_rewrites_artifact_datastores_to_local_paths() -> None:
+    module = load_module()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        config_path = tmpdir_path / ".octocov.yml"
+        resolved_path = tmpdir_path / "resolved.yml"
+        pinned_dir = tmpdir_path / "reports" / "gitignore-in" / "gitignore-in" / "octocov-report"
+        config_path.write_text(
+            """central:
+  reports:
+    datastores:
+      - artifact://gitignore-in/gitignore-in/octocov-report
+      - artifact://gitignore-in/website/octocov-report # keep comment
+  badges:
+    datastores:
+      - local://badges
+""",
+            encoding="utf-8",
+        )
+
+        module.write_resolved_config(
+            config_path,
+            resolved_path,
+            {
+                "artifact://gitignore-in/gitignore-in/octocov-report": module.render_local_datastore_url(pinned_dir),
+                "artifact://gitignore-in/website/octocov-report": module.render_local_datastore_url(
+                    tmpdir_path / "reports" / "gitignore-in" / "website" / "octocov-report"
+                ),
+            },
+        )
+
+        resolved_text = resolved_path.read_text(encoding="utf-8")
+
+    assert "artifact://gitignore-in/gitignore-in/octocov-report" not in resolved_text
+    assert f"- local://{pinned_dir.resolve().as_posix()}" in resolved_text
+    assert "# keep comment" in resolved_text
+    assert "- local://badges" not in resolved_text
+    assert f"- local://{(tmpdir_path / 'badges').resolve().as_posix()}" in resolved_text
+    assert f"  root: {tmpdir_path.resolve().as_posix()}" in resolved_text
+
+
+def test_write_resolved_config_anchors_relative_local_datastores_at_config_dir() -> None:
+    module = load_module()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        config_path = tmpdir_path / ".octocov.yml"
+        resolved_path = tmpdir_path / "resolved.yml"
+        config_path.write_text(
+            """central:
+  reports:
+    datastores:
+      - artifact://gitignore-in/gitignore-in/octocov-report
+  badges:
+    datastores:
+      - local://badges
+""",
+            encoding="utf-8",
+        )
+
+        # No replacement supplied for the artifact:// source: the point of
+        # this test is that the *relative* local:// badges datastore is
+        # still rewritten to an absolute path anchored at config_path's
+        # directory, since octocov resolves it against wherever the
+        # --config file it was given lives (which is the resolved copy's
+        # directory, not necessarily the original .octocov.yml directory).
+        module.write_resolved_config(config_path, resolved_path, {})
+
+        resolved_text = resolved_path.read_text(encoding="utf-8")
+
+    assert "- local://badges" not in resolved_text
+    assert f"- local://{(tmpdir_path / 'badges').resolve().as_posix()}" in resolved_text
+    assert f"  root: {tmpdir_path.resolve().as_posix()}" in resolved_text
+
+
+def test_write_resolved_config_does_not_override_explicit_central_root() -> None:
+    module = load_module()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        config_path = tmpdir_path / ".octocov.yml"
+        resolved_path = tmpdir_path / "resolved.yml"
+        config_path.write_text(
+            """central:
+  root: /explicit/root
+  reports:
+    datastores:
+      - artifact://gitignore-in/gitignore-in/octocov-report
+  badges:
+    datastores:
+      - local://badges
+""",
+            encoding="utf-8",
+        )
+
+        module.write_resolved_config(config_path, resolved_path, {})
+
+        resolved_text = resolved_path.read_text(encoding="utf-8")
+
+    assert resolved_text.count("root:") == 1
+    assert "root: /explicit/root" in resolved_text
+
+
+def test_materialize_artifact_archive_extracts_zip_payload() -> None:
+    module = load_module()
+
+    class FakeResponse:
+        def __init__(self, payload: bytes) -> None:
+            self.payload = payload
+
+        def read(self) -> bytes:
+            return self.payload
+
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    artifact_zip = BytesIO()
+    with zipfile.ZipFile(artifact_zip, "w") as archive:
+        archive.writestr("report.json", '{"repository":"gitignore-in/gitignore-in"}')
+
+    original_open_artifact_url = module.open_artifact_url
+    module.open_artifact_url = lambda request, timeout=30: FakeResponse(artifact_zip.getvalue())
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            destination = Path(tmpdir) / "reports"
+            module.materialize_artifact_archive(
+                "https://api.github.com/repos/gitignore-in/gitignore-in/actions/artifacts/1/zip",
+                "token",
+                destination,
+            )
+            extracted = (destination / "report.json").read_text(encoding="utf-8")
+    finally:
+        module.open_artifact_url = original_open_artifact_url
+
+    assert json.loads(extracted) == {"repository": "gitignore-in/gitignore-in"}
+
+
+def test_open_artifact_url_strips_authorization_on_cross_host_redirect() -> None:
+    module = load_module()
+
+    request = module.Request(
+        "https://api.github.com/repos/gitignore-in/gitignore-in/actions/artifacts/1/zip",
+        headers=module.github_request_headers("token"),
+    )
+    handler = module._StripAuthOnCrossHostRedirect()
+
+    same_host_redirect = handler.redirect_request(
+        request,
+        None,
+        302,
+        "Found",
+        {},
+        "https://api.github.com/repos/gitignore-in/gitignore-in/actions/artifacts/1/zip/redirected",
+    )
+    assert same_host_redirect.get_header("Authorization") is not None
+
+    cross_host_redirect = handler.redirect_request(
+        request,
+        None,
+        302,
+        "Found",
+        {},
+        "https://productionresultssa0.blob.core.windows.net/artifacts/1.zip?sig=abc",
+    )
+    assert cross_host_redirect.get_header("Authorization") is None
+
+
 def main() -> int:
     test_select_latest_artifact_prefers_default_branch()
     test_select_latest_artifact_returns_none_without_default_branch_match()
     test_build_output_payload_preserves_timestamp_when_sources_are_unchanged()
     test_build_output_payload_updates_timestamp_when_sources_change()
+    test_write_resolved_config_rewrites_artifact_datastores_to_local_paths()
+    test_write_resolved_config_anchors_relative_local_datastores_at_config_dir()
+    test_write_resolved_config_does_not_override_explicit_central_root()
+    test_materialize_artifact_archive_extracts_zip_payload()
+    test_open_artifact_url_strips_authorization_on_cross_host_redirect()
     print("OK: check-octocov-source-artifacts selection tests passed.")
     return 0
 
