@@ -22,6 +22,7 @@ _ARTIFACT_DATASTORE_RE = re.compile(
     r"^-\s*['\"]?artifact://([^\s/#'\"]+/[^\s/#'\"]+)/"
 )
 _MARKDOWN_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
+_CODE_SPAN_RE = re.compile(r"(`+).*?\1", re.DOTALL)
 
 
 class ContractError(RuntimeError):
@@ -58,12 +59,48 @@ def parse_datastore_repos(octocov_path: Path) -> set[str]:
     return result
 
 
+def find_code_span_ranges(text: str) -> list[tuple[int, int]]:
+    """Return spans of backtick-delimited code spans (e.g. `x` or ```x```).
+
+    GitHub renders Markdown image syntax inside a code span as literal text,
+    not as a live image. The README's "Copy status badge markdown" snippets
+    wrap their badge Markdown in code spans for exactly this reason, so those
+    occurrences must not be treated as rendered badges.
+    """
+    return [match.span() for match in _CODE_SPAN_RE.finditer(text)]
+
+
 def extract_markdown_image_urls(readme_path: Path) -> list[tuple[str, tuple[int, int]]]:
-    """Return Markdown image URLs and their spans from README.md."""
+    """Return every Markdown image URL and its span from README.md.
+
+    This includes occurrences inside backtick code spans (e.g. the README's
+    "Copy status badge markdown" snippets), which is required to keep
+    verifying that every raw badge URL in the file is wrapped in Markdown
+    image syntax somewhere, even when hidden inside a code span.
+    """
     text = readme_path.read_text(encoding="utf-8")
     return [
         (match.group(1), match.span())
         for match in _MARKDOWN_IMAGE_RE.finditer(text)
+    ]
+
+
+def extract_rendered_badge_urls(readme_path: Path) -> list[tuple[str, tuple[int, int]]]:
+    """Return Markdown image URLs that GitHub renders as a live badge.
+
+    Excludes matches inside backtick code spans, since GitHub renders
+    Markdown image syntax inside a code span as literal text, not as an
+    image (see find_code_span_ranges).
+    """
+    text = readme_path.read_text(encoding="utf-8")
+    code_spans = find_code_span_ranges(text)
+    return [
+        (match.group(1), match.span())
+        for match in _MARKDOWN_IMAGE_RE.finditer(text)
+        if not any(
+            code_start <= match.start() and match.end() <= code_end
+            for code_start, code_end in code_spans
+        )
     ]
 
 
@@ -73,19 +110,20 @@ def validate_readme_contract(
 ) -> None:
     configured_repos = parse_datastore_repos(octocov_path)
     markdown_urls = extract_markdown_image_urls(readme_path)
+    rendered_urls = extract_rendered_badge_urls(readme_path)
     readme_text = readme_path.read_text(encoding="utf-8")
 
     if not markdown_urls:
         raise ContractError("README.md does not contain any Markdown image badges")
 
     badge_spans = [
-        span for url, span in markdown_urls if url.startswith(EXPECTED_BADGE_PREFIX)
+        span for url, span in rendered_urls if url.startswith(EXPECTED_BADGE_PREFIX)
     ]
     if not badge_spans:
-        raise ContractError("README.md does not contain any raw badge URLs")
+        raise ContractError("README.md does not contain any rendered badge URLs")
 
     seen_repos: set[str] = set()
-    for url, span in markdown_urls:
+    for url, span in rendered_urls:
         if not url.startswith(EXPECTED_BADGE_PREFIX):
             continue
 
@@ -123,8 +161,8 @@ def validate_readme_contract(
     missing_repos = configured_repos - seen_repos
     if missing_repos:
         raise ContractError(
-            "README.md is missing badge URLs for configured repos: "
-            + ", ".join(sorted(missing_repos))
+            "README.md is missing a rendered (non-code-span) badge URL for "
+            "configured repos: " + ", ".join(sorted(missing_repos))
         )
 
     prefix_occurrences = [
