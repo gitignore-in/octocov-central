@@ -8,7 +8,6 @@ import json
 import os
 import re
 import sys
-import tempfile
 import zipfile
 from datetime import datetime, timezone
 from io import BytesIO
@@ -17,6 +16,8 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
+
+from kitsuyui.fileio import atomic_write_text
 
 
 ARTIFACT_RE = re.compile(
@@ -315,16 +316,11 @@ def write_resolved_config(
 
 def write_json_atomic(output_path: Path, payload: dict[str, Any]) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        "w",
-        encoding="utf-8",
-        dir=output_path.parent,
-        delete=False,
-    ) as handle:
-        json.dump(payload, handle, indent=2, sort_keys=False)
-        handle.write("\n")
-        temp_path = Path(handle.name)
-    temp_path.replace(output_path)
+    atomic_write_text(
+        output_path,
+        json.dumps(payload, indent=2, sort_keys=False) + "\n",
+        durability="none",
+    )
 
 
 def build_output_payload(
