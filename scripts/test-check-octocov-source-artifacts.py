@@ -131,6 +131,23 @@ def test_build_output_payload_updates_timestamp_when_sources_change() -> None:
     assert payload["sources"] == current_metadata
 
 
+def test_write_json_atomic_preserves_existing_content_when_serialization_fails() -> None:
+    module = load_module()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "source-artifacts.json"
+        output_path.write_text('{"previous": true}\n', encoding="utf-8")
+
+        try:
+            module.write_json_atomic(output_path, {"unsupported": {1, 2}})
+        except TypeError:
+            pass
+        else:
+            raise AssertionError("expected JSON serialization to fail")
+
+        assert output_path.read_text(encoding="utf-8") == '{"previous": true}\n'
+
+
 def test_write_resolved_config_rewrites_artifact_datastores_to_local_paths() -> None:
     module = load_module()
 
@@ -307,6 +324,7 @@ def main() -> int:
     test_select_latest_artifact_returns_none_without_default_branch_match()
     test_build_output_payload_preserves_timestamp_when_sources_are_unchanged()
     test_build_output_payload_updates_timestamp_when_sources_change()
+    test_write_json_atomic_preserves_existing_content_when_serialization_fails()
     test_write_resolved_config_rewrites_artifact_datastores_to_local_paths()
     test_write_resolved_config_anchors_relative_local_datastores_at_config_dir()
     test_write_resolved_config_does_not_override_explicit_central_root()
