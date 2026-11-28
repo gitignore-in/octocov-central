@@ -1,20 +1,20 @@
 {
-  "generated_at": "2026-11-17T07:22:48Z",
+  "generated_at": "2026-11-28T17:26:07Z",
   "sources": [
     {
       "source": "artifact://gitignore-in/gitignore-in/octocov-report",
       "repository": "gitignore-in/gitignore-in",
       "artifact_name": "octocov-report",
-      "artifact_id": 14227874206,
-      "digest": "sha256:c5f0e37dad903235e0caf4edf34c1eafc05c0b2c9e3c2ad6bb541b6b0dcb67f0",
-      "size_in_bytes": 20993,
-      "created_at": "2026-11-16T13:05:00Z",
-      "expires_at": "2027-02-14T13:04:31Z",
-      "archive_download_url": "https://api.github.com/repos/gitignore-in/gitignore-in/actions/artifacts/14227874206/zip",
+      "artifact_id": 14920256007,
+      "digest": "sha256:ca618add66bc4ad0b47a50eac7011beacd8d93348a4407b61385ee159d4add33",
+      "size_in_bytes": 20996,
+      "created_at": "2026-11-24T12:25:48Z",
+      "expires_at": "2027-02-22T12:24:27Z",
+      "archive_download_url": "https://api.github.com/repos/gitignore-in/gitignore-in/actions/artifacts/14920256007/zip",
       "workflow_run": {
-        "id": 43872317833,
+        "id": 45393195662,
         "head_branch": "main",
-        "head_sha": "1936406460dcd7d5e9150322960762e9f88ce596",
+        "head_sha": "dda3e381984e6d150d47dc884504bdb4cff277c8",
         "repository_id": 652453259,
         "head_repository_id": 652453259
       }
@@ -23,16 +23,16 @@
       "source": "artifact://gitignore-in/website/octocov-report",
       "repository": "gitignore-in/website",
       "artifact_name": "octocov-report",
-      "artifact_id": 14228537092,
-      "digest": "sha256:e973878e93c0a96cf08549d9b05ae7e756b01b864e89adafebeb4afbf2c48e40",
+      "artifact_id": 15197298164,
+      "digest": "sha256:2cb6d718d32d55290656c230d7e2cc0a0c4333c25ca48f76b84e54f2f3fe2a71",
       "size_in_bytes": 2065,
-      "created_at": "2026-11-16T13:06:17Z",
-      "expires_at": "2027-02-14T13:04:40Z",
-      "archive_download_url": "https://api.github.com/repos/gitignore-in/website/actions/artifacts/14228537092/zip",
+      "created_at": "2026-11-27T12:32:31Z",
+      "expires_at": "2027-02-25T12:31:07Z",
+      "archive_download_url": "https://api.github.com/repos/gitignore-in/website/actions/artifacts/15197298164/zip",
       "workflow_run": {
-        "id": 43872340913,
+        "id": 45999308463,
         "head_branch": "main",
-        "head_sha": "87c512590903933c1bc2010f13c0d1943e465dba",
+        "head_sha": "17ef3456e3291e67c3afced9a10d0fa0187b0e31",
         "repository_id": 722598626,
         "head_repository_id": 722598626
       }
